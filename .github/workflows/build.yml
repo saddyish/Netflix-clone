@@ -1,4 +1,4 @@
-name: Build
+name: Build and Deploy
 
 on:
   push:
@@ -6,8 +6,8 @@ on:
       - main
 
 jobs:
-  build:
-    name: Build
+  build-analyze-scan:
+    name: Build, Analyze, and Scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -44,3 +44,22 @@ jobs:
           docker push saish/netflix:latest
         env:
           DOCKER_CLI_ACI: 1
+
+  deploy:
+    name: Deploy to AWS Runner
+    needs: build-analyze-scan
+    runs-on: [aws-netflix]
+    steps:
+      - name: Pull the Docker image
+        run: docker pull saish/netflix:latest
+
+      - name: Trivy image scan
+        run: trivy image saish/netflix:latest
+
+      - name: Run the container
+        run: |
+          # Stop and remove existing container if running
+          docker stop netflix || true
+          docker rm netflix || true
+          # Run new container
+          docker run -d --name netflix -p 8081:80 saish/netflix:latest
